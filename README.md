@@ -1,27 +1,31 @@
-# wayland-push-to-talk-fix
-This fixes the inability to use push to talk in Discord when running Wayland
+# wayland-global-ptt
+A temporary solution for Wayland push-to-talk globally. Listens for defined key event via `evdev` and then the toggles the volume of the default capture device via `alsa-lib`.
 
+> NOTE: by default the first mouse side button (Forward, Mouse 4) key is used for push to talk. In order to use a different key, change values for `PTT_EV_KEY_CODE` in file `push-to-talk.cpp`.
 
-**NOTE: by default the left Meta (Windows) key is used for push to talk. In order to use a different key, change values for `PTT_EV_KEY_CODE` and `PTT_XKEY_CODE` in file `push-to-talk.c`.**
+> NOTE: By default, we target the default ALSA input card and the  element called `Capture`. Modify `card` and `selem_name` to suit your needs.
 
 ## Requirements
 
-Nothing special.
 - C++ compiler & Make
 - libevdev
-- libxdo (Debian/Ubuntu: `libxdo-dev`, Fedora/Centos: `libxdo-devel`)
+- alsa-lib
 
-## Approach
+## Note on permissions
 
-Read specific key events via evdev (needs sudo) and then pass them to libxdo to inject key presses to X apps.
+Your `$USER` should at least have read access to the device. **This won't work with root privileges!** This is because the root user (typically) has no context for ALSA. Modify according to your needs.
 
-# Installation
+## Security
+Usually, you can give access to the device by adding the user to the group `input`. Do note that on most distributions, this not very secure, since now effectively any program can read all of your inputs (via libevdev or similar).
 
-Optimally we would install this as a user systemctl service (contributions welcome) but for now you will need to build this and run in the background with the `&` background operator.
+### Use a mouse!
+If you are using a mouse for PTT, you should instead use udev rules to allow access to the specified mice. This way, no extra permissions are given to your keyboard. See [example here](https://wiki.archlinux.org/title/Udev#Allowing_regular_users_to_use_devices).
+
+# Installation & Usage
 
 ```
 make
-sudo ./push-to-talk /dev/input/by-id/<device-name> &
+./push-to-talk /dev/input/by-id/<device-name> &
 ```
 
 # License

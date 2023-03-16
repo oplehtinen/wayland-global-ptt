@@ -6,7 +6,6 @@ LDFLAGS=`pkg-config --libs libevdev` -lasound
 all: push-to-talk
 
 push-to-talk: push-to-talk.cpp
-setvol: setvolume.cpp
 
 clean:
 	rm -f push-to-talk
