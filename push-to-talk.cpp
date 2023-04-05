@@ -7,24 +7,42 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "setvolume.h"
+#include <thread>
 
 /* See https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h */
 #define PTT_EV_KEY_CODE BTN_EXTRA
-/* Please note that this cannot be run as root, as the root user doesn't have the required context */
-/* The better way to use udev rules or the input group to allow access to the required input device for the user */
 
+// variable to store if we are pressing the button
+bool button_pressed = false;
+
+// variable to control the mute delay length
+int delay = 0.4 * 1000000; // 1 second
+
+void delay_mute(int delay)
+{
+	usleep(delay);
+
+	// if we are not pressing the button, mute
+	if (!button_pressed)
+	{
+		fprintf(stderr, "Muting");
+		setvol(0);
+	}
+}
 
 int main(int argc, char **argv)
 {
 	struct libevdev *dev = NULL;
 
-	if (argc < 2) {
+	if (argc < 2)
+	{
 		fprintf(stderr, "Usage: %s /dev/input/by-id/<device-name>\n", argv[0]);
 		exit(0);
 	}
 
 	int fd = open(argv[1], O_RDONLY);
-	if (fd < 0) {
+	if (fd < 0)
+	{
 		perror("Failed to open device");
 		if (getuid() != 0)
 			fprintf(stderr, "Fix permissions to %s or run as root\n", argv[1]);
@@ -42,25 +60,34 @@ int main(int argc, char **argv)
 			libevdev_get_id_vendor(dev),
 			libevdev_get_id_product(dev));
 
-	if (!libevdev_has_event_code(dev, EV_KEY, PTT_EV_KEY_CODE)) {
+	if (!libevdev_has_event_code(dev, EV_KEY, PTT_EV_KEY_CODE))
+	{
 		fprintf(stderr, "This device is not capable of sending this key code\n");
 		exit(1);
 	}
 
-	do {
+	do
+	{
 		struct input_event ev;
 
 		rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
 		if (rc != LIBEVDEV_READ_STATUS_SUCCESS)
 			continue;
-		if (ev.code == PTT_EV_KEY_CODE && ev.value != 2) {
-			if (ev.value == 1) {
+		if (ev.code == PTT_EV_KEY_CODE && ev.value != 2)
+		{
+			if (ev.value == 1)
+			{
 				fprintf(stderr, "Pushed");
+				button_pressed = true;
 				setvol(100);
 			}
-			else {
+			else
+			{
+				button_pressed = false;
 				fprintf(stderr, "Released");
-				setvol(0);
+				std::thread thread(delay_mute, delay);
+				thread.detach();
+				fflush(stdout);
 			}
 		}
 	} while (rc == LIBEVDEV_READ_STATUS_SYNC || rc == LIBEVDEV_READ_STATUS_SUCCESS || rc == -EAGAIN);
@@ -70,4 +97,3 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
